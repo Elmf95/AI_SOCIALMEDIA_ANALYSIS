@@ -1,0 +1,4 @@
+env/
+__pycache__/
+./data/training.1600000.processed.noemoticon.csv/
+data/training.1600000.processed.noemoticon./
