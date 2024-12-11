@@ -1,11 +1,11 @@
 import os
 import sqlite3
 import pandas as pd
+import sys
 
-from paths import DATA_DIR  # Assurez-vous que le chemin DATA_DIR est bien configuré
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-# Chemin vers la base de données SQLite
-DB_PATH = os.path.join(DATA_DIR, "database.sqlite")
+from paths import DB_PATH
 
 
 def explore_database(db_path):
