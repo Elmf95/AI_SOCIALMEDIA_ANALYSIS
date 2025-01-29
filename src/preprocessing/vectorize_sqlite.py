@@ -1,57 +1,58 @@
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-import joblib
 import os
 import sys
+import joblib
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, accuracy_score
 
-# Ajouter le dossier racine au chemin
+# Ajouter le dossier racine au chemin pour accéder à paths.py
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from paths import CLEANED_DATA_FILE, VECTOR_DIR, VECTOR_FILE
+# Importer les chemins dynamiques à partir de paths.py
+from paths import CLEANED_DATA_FILE, MODEL_DIR, MODEL_FILE, VECTOR_DIR, VECTOR_FILE
 
-# Création du répertoire de sauvegarde si nécessaire
+# Construire les chemins complets pour le modèle et le vectorizer
+MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
+VECTOR_PATH = os.path.join(VECTOR_DIR, VECTOR_FILE)
+
+# Assurer que les répertoires nécessaires existent
+os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(VECTOR_DIR, exist_ok=True)
 
 
-def vectorize_and_save(data, vectorizer_path, output_path):
-    """
-    Vectorise les textes et sauvegarde le vectorizer ainsi que les vecteurs.
-    """
-    # Filtrer les tweets vides
-    data = data[data["clean_text"].str.strip() != ""]
+def regenerate_model_and_vectorizer(data_file, model_path, vectorizer_path):
+    print("Chargement des données...")
+    data = pd.read_csv(data_file)
 
-    # Si le dataframe est vide après le filtre
-    if data.empty:
-        print("Erreur : Aucun tweet à vectoriser (données vides après nettoyage).")
-        return
+    # Diviser les données en ensembles d'entraînement et de test
+    X_train, X_test, y_train, y_test = train_test_split(
+        data["clean_text"], data["target"], test_size=0.2, random_state=42
+    )
 
-    # Vectorisation avec TfidfVectorizer
-    vectorizer = TfidfVectorizer(max_features=10000, stop_words=None)
-    X_tfidf = vectorizer.fit_transform(data["clean_text"])
-    print(f"Shape des vecteurs TF-IDF : {X_tfidf.shape}")
+    print("Entraînement du vectorizer...")
+    vectorizer = TfidfVectorizer(max_features=5000)
+    X_train_vec = vectorizer.fit_transform(X_train)
+    X_test_vec = vectorizer.transform(X_test)
 
-    # Sauvegarder le vectorizer et les vecteurs
+    print("Entraînement du modèle...")
+    model = LogisticRegression(max_iter=1000, random_state=42)
+    model.fit(X_train_vec, y_train)
+
+    print("Évaluation du modèle...")
+    y_pred = model.predict(X_test_vec)
+    print("Rapport de classification :\n", classification_report(y_test, y_pred))
+    print(f"Précision globale : {accuracy_score(y_test, y_pred):.2f}")
+
+    # Sauvegarder le modèle et le vectorizer
+    print("Sauvegarde du modèle et du vectorizer...")
+    joblib.dump(model, model_path)
     joblib.dump(vectorizer, vectorizer_path)
-    joblib.dump(X_tfidf, output_path)
-    print(f"Vectorizer sauvegardé dans {vectorizer_path}.")
-    print(f"Vecteurs sauvegardés dans {output_path}.")
+
+    print(f"Modèle sauvegardé dans : {model_path}")
+    print(f"Vectorizer sauvegardé dans : {vectorizer_path}")
 
 
 if __name__ == "__main__":
-    # Charger les données nettoyées
-    try:
-        data = pd.read_csv(CLEANED_DATA_FILE)
-        print(f"Données nettoyées chargées depuis {CLEANED_DATA_FILE}.")
-    except Exception as e:
-        print(f"Erreur lors du chargement des données nettoyées : {e}")
-        sys.exit(1)
-
-    # Vérifier les premières lignes des tweets nettoyés
-    print(data["clean_text"].head())
-
-    # Vectoriser et sauvegarder
-    vectorize_and_save(
-        data,
-        vectorizer_path=os.path.join(VECTOR_DIR, "vectorizer.joblib"),
-        output_path=os.path.join(VECTOR_DIR, VECTOR_FILE),
-    )
+    regenerate_model_and_vectorizer(CLEANED_DATA_FILE, MODEL_PATH, VECTOR_PATH)

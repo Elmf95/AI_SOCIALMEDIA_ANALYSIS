@@ -35,8 +35,16 @@ def fetch_data():
     return df
 
 
+# Ajouter un filtre global basé sur le sentiment
+def filter_data_by_sentiment(df, sentiment):
+    if sentiment != "Tous":
+        df = df[df["airline_sentiment"] == sentiment]
+    return df
+
+
 # Fonction pour analyser l'évolution des sentiments dans le temps
-def plot_sentiment_trend(df, start_date=None, end_date=None):
+def plot_sentiment_trend(df, sentiment, start_date=None, end_date=None):
+    df = filter_data_by_sentiment(df, sentiment)  # Appliquer le filtre
     df["tweet_created"] = pd.to_datetime(df["tweet_created"])
     if start_date and end_date:
         df = df[(df["tweet_created"] >= start_date) & (df["tweet_created"] <= end_date)]
@@ -44,7 +52,7 @@ def plot_sentiment_trend(df, start_date=None, end_date=None):
         df.groupby([df["tweet_created"].dt.date, "airline_sentiment"]).size().unstack()
     )
     trend.plot(kind="line", figsize=(10, 6))
-    plt.title("Évolution des sentiments au fil du temps")
+    plt.title("évolution des sentiments au fil du temps")
     plt.xlabel("Date")
     plt.ylabel("Nombre de tweets")
     plt.tight_layout()
@@ -54,30 +62,10 @@ def plot_sentiment_trend(df, start_date=None, end_date=None):
 
 # Fonction pour générer un nuage de mots par sentiment
 def plot_wordcloud(df, sentiment):
-    """
-    Génère un nuage de mots basé sur le sentiment sélectionné.
-
-    Args:
-    - df (DataFrame): Données contenant les tweets.
-    - sentiment (str): Sentiment à filtrer ("Tous", "positive", "neutral", "negative").
-
-    Returns:
-    - str: Chemin vers l'image générée du nuage de mots.
-    """
-    # Filtrer les tweets en fonction du sentiment
-    if sentiment != "Tous":
-        filtered_df = df[df["airline_sentiment"] == sentiment]
-    else:
-        filtered_df = df
-
-    # Combiner tous les textes des tweets filtrés
-    text = " ".join(filtered_df["text"].dropna())
-
-    # Vérifier qu'il y a du texte pour générer le nuage de mots
+    df = filter_data_by_sentiment(df, sentiment)  # Appliquer le filtre
+    text = " ".join(df["text"].dropna())
     if not text.strip():
-        return f"Aucun tweet trouvé pour le sentiment : {sentiment}."
-
-    # Générer le nuage de mots
+        return f"Aucun tweet trouv\u00e9 pour le sentiment : {sentiment}."
     wordcloud = WordCloud(width=800, height=400, background_color="white").generate(
         text
     )
@@ -86,17 +74,13 @@ def plot_wordcloud(df, sentiment):
     return output_path
 
 
-# Fonction pour créer un tableau interactif des tweets
-def plot_interactive_table(df):
-    return df
-
-
 # Fonction pour analyser l'évolution des retweets dans le temps
-def plot_retweets_trend(df):
+def plot_retweets_trend(df, sentiment):
+    df = filter_data_by_sentiment(df, sentiment)  # Appliquer le filtre
     df["tweet_created"] = pd.to_datetime(df["tweet_created"])
     trend = df.groupby(df["tweet_created"].dt.date)["retweet_count"].sum()
     trend.plot(kind="line", figsize=(10, 6))
-    plt.title("Évolution des retweets dans le temps")
+    plt.title("évolution des retweets dans le temps")
     plt.xlabel("Date")
     plt.ylabel("Nombre de retweets")
     plt.tight_layout()
@@ -105,13 +89,13 @@ def plot_retweets_trend(df):
 
 
 # Fonction pour afficher les hashtags les plus fréquents
-def plot_hashtags(df):
+def plot_hashtags(df, sentiment):
+    df = filter_data_by_sentiment(df, sentiment)  # Appliquer le filtre
     hashtags = df["hashtags"].dropna().str.split(",").explode().str.strip()
     hashtag_counts = Counter(hashtags)
     most_common_hashtags = hashtag_counts.most_common(10)
     hashtags = [hashtag for hashtag, _ in most_common_hashtags]
     counts = [count for _, count in most_common_hashtags]
-
     plt.figure(figsize=(10, 6))
     plt.barh(hashtags, counts)
     plt.xlabel("Fréquence")
@@ -122,10 +106,10 @@ def plot_hashtags(df):
 
 
 # Fonction pour analyser les raisons négatives les plus fréquentes
-def plot_negative_reasons(df):
+def plot_negative_reasons(df, sentiment):
+    df = filter_data_by_sentiment(df, sentiment)  # Appliquer le filtre
     reasons = df["negativereason"].dropna()
     reason_counts = reasons.value_counts().head(10)
-
     plt.figure(figsize=(10, 6))
     reason_counts.plot(kind="barh")
     plt.title("Raisons négatives les plus fréquentes")
@@ -136,9 +120,9 @@ def plot_negative_reasons(df):
 
 
 # Fonction pour afficher l'analyse des fuseaux horaires des utilisateurs
-def plot_user_timezones(df):
+def plot_user_timezones(df, sentiment):
+    df = filter_data_by_sentiment(df, sentiment)  # Appliquer le filtre
     timezones = df["user_timezone"].dropna().value_counts().head(10)
-
     plt.figure(figsize=(10, 6))
     timezones.plot(kind="barh")
     plt.title("Fuseaux horaires des utilisateurs")
@@ -148,20 +132,23 @@ def plot_user_timezones(df):
     return "user_timezones.png"
 
 
+# Fonction pour créer un tableau interactif des tweets
+def plot_interactive_table(df):
+    return df
+
+
 # Fonction principale du dashboard
 def dashboard(sentiment):
     df = fetch_data()
 
-    # Visualisations des nouvelles fonctionnalités
-    retweets_path = plot_retweets_trend(df)
-    hashtags_path = plot_hashtags(df)
-    negative_reasons_path = plot_negative_reasons(df)
-    user_timezones_path = plot_user_timezones(df)
-
-    # Visualisations des anciennes fonctionnalités
-    sentiment_path = plot_sentiment_trend(df)
+    # Appliquer le filtre à chaque visualisation
+    sentiment_path = plot_sentiment_trend(df, sentiment)
     wordcloud_path = plot_wordcloud(df, sentiment)
-    interactive_table = plot_interactive_table(df)
+    interactive_table = plot_interactive_table(filter_data_by_sentiment(df, sentiment))
+    retweets_path = plot_retweets_trend(df, sentiment)
+    hashtags_path = plot_hashtags(df, sentiment)
+    negative_reasons_path = plot_negative_reasons(df, sentiment)
+    user_timezones_path = plot_user_timezones(df, sentiment)
 
     return (
         sentiment_path,
@@ -186,10 +173,10 @@ def create_dashboard():
 
         with gr.Row():
             with gr.Column():
-                sentiment_img = gr.Image(label="Évolution des sentiments")
+                sentiment_img = gr.Image(label="évolution des sentiments")
                 wordcloud_img = gr.Image(label="Nuage de mots")
             with gr.Column():
-                retweets_img = gr.Image(label="Évolution des retweets")
+                retweets_img = gr.Image(label="évolution des retweets")
                 hashtags_img = gr.Image(label="Tendances des hashtags")
             with gr.Column():
                 negative_reasons_img = gr.Image(
